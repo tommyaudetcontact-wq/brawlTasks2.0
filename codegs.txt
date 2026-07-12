@@ -1,0 +1,253 @@
+// URL ou ID de ton Google Sheets
+const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
+
+function doGet(e) {
+  const action = e.parameter.action;
+  let result = {};
+  
+  try {
+    if (action === 'login') {
+      result = login(e.parameter.username, e.parameter.password);
+    } else if (action === 'getState') {
+      result = getJoueurState(e.parameter.username);
+    } else if (action === 'getMembres') {
+      result = getTousLesMembres();
+    } else if (action === 'getTaches') {
+      result = getTaches(e.parameter.username, e.parameter.role);
+    } else if (action === 'changerStatut') {
+      result = changerStatutTache(e.parameter.id, e.parameter.statut);
+    } else if (action === 'ajouterTache') {
+      result = ajouterTache(e.parameter.desc, parseInt(e.parameter.xp), parseFloat(e.parameter.money), e.parameter.assign);
+    } else if (action === 'creerMembre') {
+      result = creerMembre(e.parameter.nom);
+    } else if (action === 'supprimerMembre') {
+      result = supprimerMembre(e.parameter.nom);
+    } else if (action === 'getCollection') {
+      result = getCollection();
+    } else if (action === 'getEchanges') {
+      result = getEchanges(e.parameter.username);
+    } else if (action === 'creerEchange') {
+      result = creerEchange(e.parameter.demandeur, e.parameter.receveur, e.parameter.maCarteId, e.parameter.saCarteId);
+    } else if (action === 'repondreEchange') {
+      result = repondreEchange(e.parameter.id, e.parameter.statut);
+    } else if (action === 'enregistrerCarteLocal') {
+      result = enregistrerCartePiocheeLocalement(e.parameter.idMembre, e.parameter.username, e.parameter.cardId, e.parameter.cardName, e.parameter.cardImg);
+    }
+  } catch(err) {
+    result = { success: false, error: err.toString() };
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getSheet(sheetName) {
+  return SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
+}
+
+function sheetToObjects(sheet) {
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  const headers = data[0];
+  const rows = data.slice(1);
+  return rows.map(row => {
+    const obj = {};
+    headers.forEach((header, i) => { obj[header] = row[i]; });
+    return obj;
+  });
+}
+
+function login(username, password) {
+  if (username.toLowerCase() === 'admin' && password === '1234') {
+    return { success: true, role: 'admin', user: 'Admin' };
+  }
+  const members = sheetToObjects(getSheet('Membres'));
+  const user = members.find(m => m.Nom && m.Nom.toLowerCase() === username.toLowerCase() && m.Role !== 'admin');
+  if (user) {
+    return { success: true, role: 'joueur', user: user.Nom, id: user.ID_Membre };
+  }
+  return { success: false, message: 'Utilisateur introuvable' };
+}
+
+function getTousLesMembres() {
+  const members = sheetToObjects(getSheet('Membres'));
+  return members.filter(m => m.Nom).map(m => m.Nom);
+}
+
+function getJoueurState(username) {
+  const members = sheetToObjects(getSheet('Membres'));
+  const user = members.find(m => m.Nom && m.Nom.toLowerCase() === username.toLowerCase());
+  if (user) {
+    return { idMembre: user.ID_Membre, xp: user.XP, niveau: user.Niveau, argent: user.Argent, stateUpdate: user.State_Update };
+  }
+  return null;
+}
+
+function incrementState(username) {
+  const sheet = getSheet('Membres');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][1] && (data[i][1].toLowerCase() === username.toLowerCase() || username === 'Tous' || username === 'Admin')) {
+      const currentUpdate = parseInt(data[i][6]) || 0;
+      sheet.getRange(i + 1, 7).setValue(currentUpdate + 1);
+    }
+  }
+}
+
+function getTaches(username, role) {
+  const taches = sheetToObjects(getSheet('Taches'));
+  if (role === 'admin') return taches;
+  return taches.filter(t => t.Assigne_A && (t.Assigne_A.toLowerCase() === username.toLowerCase() || t.Assigne_A === 'Tous'));
+}
+
+function ajouterTache(description, xp, argent, assigneA) {
+  const sheet = getSheet('Taches');
+  const id = 'T_' + new Date().getTime();
+  sheet.appendRow([id, description, xp, argent, assigneA, 'a faire']);
+  incrementState(assigneA);
+  incrementState('Admin');
+  return { success: true };
+}
+
+function changerStatutTache(idTache, nouveauStatut) {
+  const sheet = getSheet('Taches');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === idTache) {
+      if (nouveauStatut === 'approuve') {
+        const assigneA = data[i][4];
+        attribuerRecompenses(assigneA, parseInt(data[i][2]), parseFloat(data[i][3]));
+        sheet.deleteRow(i + 1);
+      } else {
+        sheet.getRange(i + 1, 6).setValue(nouveauStatut);
+        incrementState('Admin');
+        incrementState(data[i][4]);
+      }
+      break;
+    }
+  }
+  return { success: true };
+}
+
+function attribuerRecompenses(username, xpGagne, argentGagne) {
+  const sheet = getSheet('Membres');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][1] && (data[i][1].toLowerCase() === username.toLowerCase() || (username === 'Tous' && data[i][2] !== 'admin'))) {
+      let currentXp = parseInt(data[i][3]) || 0;
+      let currentNiveau = parseInt(data[i][4]) || 1;
+      let currentArgent = parseFloat(data[i][5]) || 0;
+      
+      currentXp += xpGagne;
+      currentArgent += argentGagne;
+      
+      while (currentXp >= 100) {
+        currentXp -= 100;
+        currentNiveau += 1; 
+      }
+      
+      sheet.getRange(i + 1, 4).setValue(currentXp);
+      sheet.getRange(i + 1, 5).setValue(currentNiveau);
+      sheet.getRange(i + 1, 6).setValue(currentArgent);
+      
+      const currentUpdate = parseInt(data[i][6]) || 0;
+      sheet.getRange(i + 1, 7).setValue(currentUpdate + 1);
+    }
+  }
+}
+
+function enregistrerCartePiocheeLocalement(idMembre, nomJoueur, cardId, cardName, cardImg) {
+  const collectionSheet = getSheet('Collection');
+  collectionSheet.appendRow([idMembre, nomJoueur, cardId, cardName, new Date(), cardImg]);
+  incrementState(nomJoueur);
+  return { success: true };
+}
+
+function getCollection() {
+  return sheetToObjects(getSheet('Collection')) || [];
+}
+
+function getEchanges(username) {
+  const echanges = sheetToObjects(getSheet('Echanges'));
+  return echanges.filter(e => e.Demandeur && e.Receveur && (e.Demandeur.toLowerCase() === username.toLowerCase() || e.Receveur.toLowerCase() === username.toLowerCase()));
+}
+
+function creerEchange(demandeur, receveur, maCarteId, saCarteId) {
+  const sheet = getSheet('Echanges');
+  const id = 'EX_' + new Date().getTime();
+  sheet.appendRow([id, demandeur, receveur, maCarteId, saCarteId, 'en_attente']);
+  incrementState(receveur);
+  incrementState(demandeur);
+  return { success: true };
+}
+
+function repondreEchange(id, statut) {
+  const sheet = getSheet('Echanges');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === id) {
+      const demandeur = data[i][1];
+      const receveur = data[i][2];
+      const maCarteId = data[i][3];
+      const saCarteId = data[i][4];
+      
+      if (statut === 'accepte') {
+        executerTransactionDouble(demandeur, receveur, maCarteId, saCarteId);
+      }
+      
+      // NETTOYAGE : Qu'il soit accepté ou refusé, on le supprime direct du Sheets au lieu de changer le statut !
+      sheet.deleteRow(i + 1);
+      
+      incrementState(demandeur);
+      incrementState(receveur);
+      break;
+    }
+  }
+  return { success: true };
+}
+
+function executerTransactionDouble(demandeur, receveur, maCarteId, saCarteId) {
+  const collectionSheet = getSheet('Collection');
+  const data = collectionSheet.getDataRange().getValues();
+  
+  let donneurOk = false;
+  let receveurOk = false;
+
+  for (let i = 1; i < data.length; i++) {
+    let rowUser = data[i][1].toString().toLowerCase();
+    let rowCard = data[i][2].toString();
+
+    if (!donneurOk && rowUser === demandeur.toLowerCase() && rowCard === maCarteId.toString()) {
+      collectionSheet.getRange(i + 1, 2).setValue(receveur);
+      donneurOk = true;
+    }
+    else if (!receveurOk && rowUser === receveur.toLowerCase() && rowCard === saCarteId.toString()) {
+      collectionSheet.getRange(i + 1, 2).setValue(demandeur);
+      receveurOk = true;
+    }
+    
+    if(donneurOk && receveurOk) break;
+  }
+}
+
+function creerMembre(nom) {
+  const sheet = getSheet('Membres');
+  const data = sheet.getDataRange().getValues();
+  sheet.appendRow([data.length, nom, 'joueur', 0, 1, 0, 0]);
+  incrementState('Admin');
+  return { success: true };
+}
+
+// SUPPRESSION COMPLÈTE DU JOUEUR DEPUIS LA BASE DE DONNÉES
+function supprimerMembre(nom) {
+  const sheet = getSheet('Membres');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][1] && data[i][1].toString().toLowerCase() === nom.toLowerCase()) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
+  incrementState('Admin');
+  return { success: true };
+}
