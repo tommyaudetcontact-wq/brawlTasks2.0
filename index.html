@@ -149,8 +149,8 @@
 
     <div id="appPage" class="container py-4 d-none">
 
-    <a href="https://tommyaudetcontact-wq.github.io/zoneDeCombat3.0/"  class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Multi</a>
-<a href="https://tommyaudetcontact-wq.github.io/zone-de-combat-hors-ligne/"  class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Solo</a>
+        <a href="https://tommyaudetcontact-wq.github.io/zoneDeCombat3.0/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Multi</a>
+        <a href="https://tommyaudetcontact-wq.github.io/zone-de-combat-hors-ligne/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Solo</a>
         
         <div class="brawl-card p-4 animate__animated animate__fadeInDown">
             <div class="row align-items-center">
@@ -161,7 +161,7 @@
                 </div>
 
                 <div class="col-md-8 mt-3 mt-md-0" id="xpBlockSection">
-                    <label class="brawl-font text-white-forced mb-1" style="-webkit-text-stroke: 1px #000;">NIVEAU XP PROCHAIN POKÉMON</label>
+                    <label class="brawl-font text-white-forced mb-1" style="-webkit-text-stroke: 1px #000;">NIVEAU XP PROCHAIN BOOSTER</label>
                     <div class="brawl-progress-container">
                         <div id="xpBar" class="brawl-progress-bar"></div>
                         <div id="xpText" class="brawl-progress-text">0 / 100 XP</div>
@@ -232,7 +232,7 @@
                     
                     <div class="brawl-card p-4">
                         <h3 class="brawl-font text-danger mb-3" style="-webkit-text-stroke:1px #000;">Gestion des Joueurs</h3>
-                        <ul id="adminMembresList" class="list-group bg-transparent border-0"></ul>
+                        <div id="adminMembresList" class="d-flex flex-column gap-3"></div>
                     </div>
                 </div>
             </div>
@@ -245,8 +245,8 @@
                 <h1 class="brawl-font text-warning animate__animated animate__pulse animate__infinite" style="font-size: 3.5rem;">LEVEL UP !</h1>
                 <p class="fs-4 text-info fw-bold" id="rewardModalText">Nouvelle carte débloquée !</p>
                 <div class="pokemon-glow my-4">
-                    <img id="rewardCardImg" src="" class="pokemon-img-modal">
-                    <h2 class="brawl-font text-white mt-3" id="rewardCardName">POKÉMON</h2>
+                    <img id="rewardCardImg" src="" class="pokemon-img-modal" style="border-radius: 14px; max-width: 240px; box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);">
+                    <h2 class="brawl-font text-white mt-3" id="rewardCardName">CARTE OBTENUE</h2>
                 </div>
                 <button id="rewardNextBtn" onclick="nextRewardCard()" class="btn brawl-btn btn-yellow px-5 py-3 fs-4">SUIVANT !</button>
             </div>
@@ -287,8 +287,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // TON URL APP SCRIPT UNIQUE ET CORRECTE
-        const API_URL = "https://script.google.com/macros/s/AKfycbzKgKRkfVyQuNCrc0T13iH1orPFeWIZAK4kB_emnRFimN-ae_HzISIqUzZ_g1aWgPwHjg/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbxQIa8HMSBDhGczlwVmINFSyZp_hSuEcXEzB5r7_5KdwEcQVn00VKGLO_0rQVN8hjYx/exec";
 
         let currentUser = null, userRole = null, currentLocalState = -1, idMembreSession = null;
         let pendingCards = [], checkedTrades = [], lastLevel = -1, myLocalOwnedIds = [];
@@ -303,10 +302,9 @@
                 .then(res => res.json())
                 .then(membres => {
                     fullMembresListGlobal = Array.isArray(membres) ? membres.filter(m => m) : [];
-                    if (!fullMembresListGlobal.includes('Admin')) fullMembresListGlobal.unshift('Admin');
                     buildDropdowns(fullMembresListGlobal);
                     renderAdminMembresList();
-                }).catch(() => buildDropdowns(['Admin']));
+                }).catch(() => buildDropdowns([]));
         }
 
         function buildDropdowns(membres) {
@@ -319,27 +317,58 @@
             targetTradeSelect.innerHTML = '<option value="">-- Choisis ton ami --</option>';
             
             membres.forEach(m => {
-                loginSelect.innerHTML += `<option value="${m}">${m}</option>`;
-                if (m !== 'Admin') {
-                    assignSelect.innerHTML += `<option value="${m}">${m}</option>`;
-                    targetTradeSelect.innerHTML += `<option value="${m}">${m}</option>`;
+                let name = m.Nom || m;
+                if (name !== 'Admin') {
+                    loginSelect.innerHTML += `<option value="${name}">${name}</option>`;
+                    assignSelect.innerHTML += `<option value="${name}">${name}</option>`;
+                    targetTradeSelect.innerHTML += `<option value="${name}">${name}</option>`;
                 }
             });
+            // Ajoute l'admin séparément dans l'écran de login
+            loginSelect.innerHTML += `<option value="Admin">Admin</option>`;
         }
 
         function renderAdminMembresList() {
             const list = document.getElementById('adminMembresList');
             if(!list) return;
             list.innerHTML = "";
-            fullMembresListGlobal.forEach(m => {
-                if(m !== 'Admin') {
-                    list.innerHTML += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center bg-dark border-secondary text-white rounded-3 mb-2">
-                            <span class="fw-bold fs-5">${m}</span>
-                            <button onclick="supprimerMembreAdmin('${m}')" class="btn btn-sm btn-danger px-3 py-1 fw-bold" style="border:2px solid #000; border-radius:8px;">Supprimer ❌</button>
-                        </li>`;
-                }
-            });
+            
+            fetch(`${API_URL}?action=getMembres`)
+                .then(res => res.json())
+                .then(membres => {
+                    membres.forEach(m => {
+                        let name = m.Nom || m;
+                        if(name !== 'Admin') {
+                            let pref = (m.Type_Recompense || "pokemon").toLowerCase().trim();
+                            
+                            list.innerHTML += `
+                                <div class="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center bg-dark border-secondary p-3 text-white rounded-3">
+                                    <div class="mb-2 mb-sm-0">
+                                        <span class="fw-bold fs-5 d-block">${name}</span>
+                                        <div class="mt-1 d-flex align-items-center gap-1">
+                                            <span class="small text-muted">Récompenses :</span>
+                                            <select onchange="changerPreferenceRecompense('${name}', this.value)" class="form-select form-select-sm bg-black text-white border-secondary w-auto d-inline-block">
+                                                <option value="pokemon" ${pref === 'pokemon' ? 'selected' : ''}>Pokémon uniquement</option>
+                                                <option value="lorcana" ${pref === 'lorcana' ? 'selected' : ''}>Lorcana uniquement</option>
+                                                <option value="les_deux" ${pref === 'les_deux' ? 'selected' : ''}>Les deux (Aléatoire)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button onclick="supprimerMembreAdmin('${name}')" class="btn btn-sm btn-danger px-3 py-1 fw-bold align-self-end align-self-sm-center" style="border:2px solid #000; border-radius:8px;">Supprimer ❌</button>
+                                </div>`;
+                        }
+                    });
+                });
+        }
+
+        function changerPreferenceRecompense(user, preference) {
+            fetch(`${API_URL}?action=setPreferenceRecompense&username=${encodeURIComponent(user)}&preference=${preference}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log(`Préférence de ${user} changée vers ${preference}`);
+                    }
+                });
         }
 
         document.getElementById('usernameSelect').addEventListener('change', function(e) {
@@ -423,35 +452,78 @@
                 .then(renderTaches);
         }
 
-        async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
+async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
             isDrawingProcessActive = true;
             let cardsToOpen = [];
-            for (let k = 0; k < nbNiveauxGagnes; k++) {
-                let success = false;
-                let cardData = null;
-                while (!success) {
-                    let rNum = Math.floor(Math.random() * 264) + 1;
-                    let candidateId = "swsh8-" + rNum;
-                    if (!myLocalOwnedIds.includes(candidateId)) {
-                        let imgUrl = `https://images.pokemontcg.io/swsh8/${rNum}_hires.png`;
-                        let isImageValid = await new Promise(resolve => {
-                            let img = new Image();
-                            img.onload = () => resolve(true);
-                            img.onerror = () => resolve(false);
-                            img.src = imgUrl;
-                        });
-                        if (isImageValid) {
-                            success = true;
-                            cardData = { id: candidateId, name: "CARTE COMPAGNONS #" + rNum, img: imgUrl };
-                            myLocalOwnedIds.push(candidateId);
+
+            try {
+                // 1. Récupérer l'état du joueur connecté pour connaître sa préférence (Pokémon, Lorcana, ou les deux)
+                const stateRes = await fetch(`${API_URL}?action=getState&username=${encodeURIComponent(currentUser)}`);
+                const stateData = await stateRes.json();
+                let preference = (stateData.typeRecompense || "pokemon").toLowerCase().trim();
+
+                // 2. Effectuer les tirages pour chaque niveau gagné
+                for (let k = 0; k < nbNiveauxGagnes; k++) {
+                    let decisionType = preference;
+                    if (preference === 'les_deux') {
+                        decisionType = Math.random() < 0.5 ? 'pokemon' : 'lorcana';
+                    }
+
+                    let cardId, cardName, cardImg;
+
+                    if (decisionType === 'lorcana') {
+                        try {
+                            // Tirage Lorcana côté client (Browser) - Évite le blocage d'IP des serveurs Google
+                            const setsResponse = await fetch('https://api.lorcast.com/v0/sets');
+                            const setsData = await setsResponse.json();
+                            const sets = setsData.results || [];
+
+                            if (sets.length > 0) {
+                                // Choix d'un set au hasard
+                                const randomSet = sets[Math.floor(Math.random() * sets.length)];
+                                const cardsResponse = await fetch(`https://api.lorcast.com/v0/sets/${randomSet.id}/cards`);
+                                const cardsData = await cardsResponse.json();
+                                const poolCartes = cardsData.results || cardsData;
+
+                                // On filtre les doublons déjà possédés localement (dans notre liste myLocalOwnedIds)
+                                const cartesDisponibles = poolCartes.filter(card => !myLocalOwnedIds.includes("lorc-" + card.id));
+                                const selectionPool = cartesDisponibles.length > 0 ? cartesDisponibles : poolCartes;
+                                const selectedCard = selectionPool[Math.floor(Math.random() * selectionPool.length)];
+
+                                cardId = "lorc-" + selectedCard.id;
+                                cardName = selectedCard.name || "Carte Lorcana";
+                                cardImg = selectedCard.image_uris && selectedCard.image_uris.digital && selectedCard.image_uris.digital.large 
+                                    ? selectedCard.image_uris.digital.large 
+                                    : "https://placehold.co/280x390/151824/8b5cf6?text=Image+Non+Disponible";
+                            } else {
+                                decisionType = 'pokemon';
+                            }
+                        } catch (err) {
+                            console.error("Échec API Lorcana, bascule sur Pokémon :", err);
+                            decisionType = 'pokemon';
                         }
                     }
+
+                    if (decisionType === 'pokemon') {
+                        // Tirage de Pokémon standard
+                        let randomNum = Math.floor(Math.random() * 260) + 1;
+                        cardId = "swsh8-" + randomNum;
+                        cardName = "CADEAU NIVEAU #" + randomNum;
+                        cardImg = "https://images.pokemontcg.io/swsh8/" + randomNum + "_hires.png";
+                    }
+
+                    // 3. Enregistrer la carte choisie directement sur le serveur Sheets
+                    await fetch(`${API_URL}?action=enregistrerCarteLocal&idMembre=${idMembreSession}&username=${encodeURIComponent(currentUser)}&cardId=${cardId}&cardName=${encodeURIComponent(cardName)}&cardImg=${encodeURIComponent(cardImg)}`);
+
+                    // 4. Ajouter à la liste des cartes à dévoiler à l'écran
+                    cardsToOpen.push({ Nom_Pokemon: cardName, Image_URL: cardImg });
+                    myLocalOwnedIds.push(cardId); // Évite de la repiocher dans la foulée si plusieurs niveaux gagnés
                 }
-                if (cardData) {
-                    await fetch(`${API_URL}?action=enregistrerCarteLocal&idMembre=${idMembreSession}&username=${encodeURIComponent(currentUser)}&cardId=${cardData.id}&cardName=${encodeURIComponent(cardData.name)}&cardImg=${encodeURIComponent(cardData.img)}`);
-                    cardsToOpen.push({ Nom_Pokemon: cardData.name, Image_URL: cardData.img });
-                }
+            } catch (error) {
+                console.error("Erreur lors du processus de pioche :", error);
             }
+
+            // Ouvrir la boîte à cadeaux à l'écran
             if (cardsToOpen.length > 0) { 
                 pendingCards = [...pendingCards, ...cardsToOpen]; 
                 showNextRewardCard(); 
@@ -463,7 +535,6 @@
             const container = document.getElementById('tachesList');
             container.innerHTML = "";
             taches.forEach(t => {
-                // CORRECTIF ABSOLU : Si l'admin regarde et que c'est approuvé, on zappe COMPLETEMENT la création du bloc HTML
                 if (userRole === 'admin' && t.Statut === 'approuve') {
                     return; 
                 }
@@ -481,11 +552,10 @@
             }
         }
 
-        // MODIFICATION ICI : On recharge immédiatement les tâches après le clic pour un effet visuel instantané
         function actionTache(id, statut) { 
             fetch(`${API_URL}?action=changerStatut&id=${id}&statut=${statut}`)
                 .then(() => {
-                    chargerEtAfficherTaches(); // Met à jour l'écran immédiatement !
+                    chargerEtAfficherTaches();
                 }); 
         }
 
@@ -500,13 +570,13 @@
                     myLocalOwnedIds = [];
 
                     const mesCartes = toutesLesCartes.filter(row => {
-                        let fUser = row.Nom_Joueur || row.Nom || row.nom || row.Joueur || row.joueur || row.NOM_JOUEUR || row.Assigne_A || "";
+                        let fUser = row.Nom_Joueur || row.Nom || row.nom || row.Joueur || row.joueur || "";
                         return fUser.toString().toLowerCase() === currentUser.toLowerCase();
                     });
 
                     mesCartes.forEach(c => {
-                        let trueImg = c.Image_URL || c.Image || c.url || c.IMAGE_URL || c.image_url || c.image || "";
-                        let trueId = c.Pokemon_API_ID || c.ID || c.id || c.POKEMON_API_ID || c.pokemon_api_id || c.ID_Piece || "ID";
+                        let trueImg = c.Image_URL || c.Image || "";
+                        let trueId = c.Pokemon_API_ID || c.ID || c.id || "";
                         myLocalOwnedIds.push(String(trueId));
                         grid.innerHTML += `<div class="col text-center"><div class="pokemon-card-wrapper animate__animated animate__fadeIn"><img src="${trueImg}" class="pokemon-card-img"></div></div>`;
                     });
@@ -536,12 +606,12 @@
         function renderMyTradeZone() {
             const container = document.getElementById('myTradeZone'); container.innerHTML = "";
             const mesCartes = rawBoosterCardsGlobal.filter(row => {
-                let fUser = row.Nom_Joueur || row.Nom || row.nom || row.Joueur || row.joueur || row.NOM_JOUEUR || row.Assigne_A || "";
+                let fUser = row.Nom_Joueur || row.Nom || row.nom || row.Joueur || row.joueur || "";
                 return fUser.toString().toLowerCase() === currentUser.toLowerCase();
             });
             mesCartes.forEach(c => {
-                let trueImg = c.Image_URL || c.Image || c.url || c.IMAGE_URL || c.image_url || c.image || "";
-                let trueId = c.Pokemon_API_ID || c.ID || c.id || c.POKEMON_API_ID || c.pokemon_api_id || c.ID_Piece || "ID";
+                let trueImg = c.Image_URL || c.Image || "";
+                let trueId = c.Pokemon_API_ID || c.ID || c.id || "";
                 let isSel = selectedMyCardId === trueId ? 'selected' : '';
                 container.innerHTML += `<div class="col"><div class="pokemon-card-wrapper ${isSel}" onclick="selectMyCardForTrade('${trueId}')"><img src="${trueImg}" class="pokemon-card-img"></div></div>`;
             });
@@ -552,12 +622,12 @@
             const container = document.getElementById('partnerTradeZone'); container.innerHTML = "";
             if (!targetFriend) { container.innerHTML = `<div class="col-12 text-center text-muted py-5">Sélectionne un ami pour scanner ses cartes.</div>`; return; }
             const sesCartes = rawBoosterCardsGlobal.filter(row => {
-                let fUser = row.Nom_Joueur || row.Nom || row.nom || row.Joueur || row.joueur || row.NOM_JOUEUR || row.Assigne_A || "";
+                let fUser = row.Nom_Joueur || row.Nom || row.nom || row.Joueur || row.joueur || "";
                 return fUser.toString().toLowerCase() === targetFriend.toLowerCase();
             });
             sesCartes.forEach(c => {
-                let trueImg = c.Image_URL || c.Image || c.url || c.IMAGE_URL || c.image_url || c.image || "";
-                let trueId = c.Pokemon_API_ID || c.ID || c.id || c.POKEMON_API_ID || c.pokemon_api_id || c.ID_Piece || "ID";
+                let trueImg = c.Image_URL || c.Image || "";
+                let trueId = c.Pokemon_API_ID || c.ID || c.id || "";
                 let isSel = selectedPartnerCardId === trueId ? 'selected' : '';
                 container.innerHTML += `<div class="col"><div class="pokemon-card-wrapper ${isSel}" onclick="selectPartnerCardForTrade('${trueId}')"><img src="${trueImg}" class="pokemon-card-img"></div></div>`;
             });
@@ -576,10 +646,10 @@
 
         function ouvrirLiveModalEchange(trade) {
             document.getElementById('tradeDecisionText').innerText = `${trade.Demandeur} veut faire un échange ! Il t'offre sa carte en échange de la tienne.`;
-            let carteOfferteObj = rawBoosterCardsGlobal.find(c => (c.Pokemon_API_ID || c.ID || c.id || c.ID_Piece || "").toString() === trade.Carte_Offerte_ID.toString());
-            let carteDemandeeObj = rawBoosterCardsGlobal.find(c => (c.Pokemon_API_ID || c.ID || c.id || c.ID_Piece || "").toString() === trade.Carte_Demandee_ID.toString());
-            document.getElementById('decisionPartnerCardImg').src = carteOfferteObj ? (carteOfferteObj.Image_URL || carteOfferteObj.Image || carteOfferteObj.url) : 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
-            document.getElementById('decisionMyCardImg').src = carteDemandeeObj ? (carteDemandeeObj.Image_URL || carteDemandeeObj.Image || carteDemandeeObj.url) : 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
+            let carteOfferteObj = rawBoosterCardsGlobal.find(c => (c.Pokemon_API_ID || c.ID || c.id || "").toString() === trade.Carte_Offerte_ID.toString());
+            let carteDemandeeObj = rawBoosterCardsGlobal.find(c => (c.Pokemon_API_ID || c.ID || c.id || "").toString() === trade.Carte_Demandee_ID.toString());
+            document.getElementById('decisionPartnerCardImg').src = carteOfferteObj ? (carteOfferteObj.Image_URL || carteOfferteObj.Image || "") : '';
+            document.getElementById('decisionMyCardImg').src = carteDemandeeObj ? (carteDemandeeObj.Image_URL || carteDemandeeObj.Image || "") : '';
             const m = new bootstrap.Modal(document.getElementById('tradeDecisionModal'));
             document.getElementById('btnAcceptTrade').onclick = () => repondreAuDeal(trade.ID_Echange, 'accepte', m);
             document.getElementById('btnRefuseTrade').onclick = () => repondreAuDeal(trade.ID_Echange, 'refuse', m);
@@ -592,7 +662,7 @@
             if (pendingCards.length === 0) { rewardModalInstance.hide(); return; }
             const c = pendingCards.shift();
             document.getElementById('rewardCardImg').src = c.Image_URL;
-            document.getElementById('rewardCardName').innerText = "NOUVELLE CARTE !";
+            document.getElementById('rewardCardName').innerText = c.Nom_Pokemon;
             document.getElementById('rewardNextBtn').innerText = pendingCards.length > 0 ? "SUIVANT ! 🔥" : "FERMER ! 🕹️";
             rewardModalInstance.show();
         }
