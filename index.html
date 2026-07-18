@@ -95,6 +95,24 @@
         }
         .pokemon-card-img { width: 100%; height: auto; border-radius: 10px; display: block; }
         
+/* GESTION DES LUEURS SELON L'ÉTAT COMPLET DE LA CARTE */
+        .pokemon-card-wrapper.glow-moyen {
+            border-color: var(--brawl-yellow) !important;
+            box-shadow: 0 0 20px var(--brawl-yellow), 0 6px 0 #000 !important;
+        }
+        .pokemon-card-wrapper.glow-mauvais {
+            border-color: var(--brawl-pink) !important;
+            box-shadow: 0 0 20px var(--brawl-pink), 0 6px 0 #000 !important;
+            animation: pulseMauvaisAlerte 1.5s infinite alternate;
+        }
+        @keyframes pulseMauvaisAlerte {
+            0% { box-shadow: 0 0 8px var(--brawl-pink), 0 6px 0 #000 !important; }
+            100% { box-shadow: 0 0 25px var(--brawl-pink), 0 6px 0 #000 !important; }
+        }
+
+        .card-xp-mini-container { background: #111; border: 2px solid #000; border-radius: 6px; height: 10px; overflow: hidden; width: 80%; margin: 4px auto 0 auto; }
+        .card-xp-mini-bar { background: #00ffcc; height: 100%; }
+
         .pokemon-modal .modal-content {
             background: radial-gradient(circle, #8a2be2 0%, #1a0536 100%);
             border: 8px solid var(--brawl-yellow); border-radius: 30px;
@@ -149,9 +167,9 @@
 
     <div id="appPage" class="container py-4 d-none">
 
-        <a href="https://tommyaudetcontact-wq.github.io/zoneDeCombat3.0/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Multi</a>
         <a href="https://tommyaudetcontact-wq.github.io/zone-de-combat-hors-ligne/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Solo</a>
-        
+        <a href="soin.html" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">🧼 Centre de Soin</a>
+
         <div class="brawl-card p-4 animate__animated animate__fadeInDown">
             <div class="row align-items-center">
                 <div class="col-md-4 text-center text-md-start">
@@ -324,7 +342,6 @@
                     targetTradeSelect.innerHTML += `<option value="${name}">${name}</option>`;
                 }
             });
-            // Ajoute l'admin séparément dans l'écran de login
             loginSelect.innerHTML += `<option value="Admin">Admin</option>`;
         }
 
@@ -429,6 +446,8 @@
                                 if (state.niveau > oldLevel && !isDrawingProcessActive) {
                                     localStorage.setItem(key, state.niveau);
                                     await piocherUneCarteTCGEnLocal(state.niveau - oldLevel);
+                                } else if (state.niveau < oldLevel) {
+                                    localStorage.setItem(key, state.niveau);
                                 }
                             } else {
                                 localStorage.setItem(key, state.niveau);
@@ -452,17 +471,15 @@
                 .then(renderTaches);
         }
 
-async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
+        async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
             isDrawingProcessActive = true;
             let cardsToOpen = [];
 
             try {
-                // 1. Récupérer l'état du joueur connecté pour connaître sa préférence (Pokémon, Lorcana, ou les deux)
                 const stateRes = await fetch(`${API_URL}?action=getState&username=${encodeURIComponent(currentUser)}`);
                 const stateData = await stateRes.json();
                 let preference = (stateData.typeRecompense || "pokemon").toLowerCase().trim();
 
-                // 2. Effectuer les tirages pour chaque niveau gagné
                 for (let k = 0; k < nbNiveauxGagnes; k++) {
                     let decisionType = preference;
                     if (preference === 'les_deux') {
@@ -473,19 +490,16 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
 
                     if (decisionType === 'lorcana') {
                         try {
-                            // Tirage Lorcana côté client (Browser) - Évite le blocage d'IP des serveurs Google
                             const setsResponse = await fetch('https://api.lorcast.com/v0/sets');
                             const setsData = await setsResponse.json();
                             const sets = setsData.results || [];
 
                             if (sets.length > 0) {
-                                // Choix d'un set au hasard
                                 const randomSet = sets[Math.floor(Math.random() * sets.length)];
                                 const cardsResponse = await fetch(`https://api.lorcast.com/v0/sets/${randomSet.id}/cards`);
                                 const cardsData = await cardsResponse.json();
                                 const poolCartes = cardsData.results || cardsData;
 
-                                // On filtre les doublons déjà possédés localement (dans notre liste myLocalOwnedIds)
                                 const cartesDisponibles = poolCartes.filter(card => !myLocalOwnedIds.includes("lorc-" + card.id));
                                 const selectionPool = cartesDisponibles.length > 0 ? cartesDisponibles : poolCartes;
                                 const selectedCard = selectionPool[Math.floor(Math.random() * selectionPool.length)];
@@ -505,25 +519,20 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
                     }
 
                     if (decisionType === 'pokemon') {
-                        // Tirage de Pokémon standard
                         let randomNum = Math.floor(Math.random() * 260) + 1;
                         cardId = "swsh8-" + randomNum;
                         cardName = "CADEAU NIVEAU #" + randomNum;
                         cardImg = "https://images.pokemontcg.io/swsh8/" + randomNum + "_hires.png";
                     }
 
-                    // 3. Enregistrer la carte choisie directement sur le serveur Sheets
                     await fetch(`${API_URL}?action=enregistrerCarteLocal&idMembre=${idMembreSession}&username=${encodeURIComponent(currentUser)}&cardId=${cardId}&cardName=${encodeURIComponent(cardName)}&cardImg=${encodeURIComponent(cardImg)}`);
-
-                    // 4. Ajouter à la liste des cartes à dévoiler à l'écran
                     cardsToOpen.push({ Nom_Pokemon: cardName, Image_URL: cardImg });
-                    myLocalOwnedIds.push(cardId); // Évite de la repiocher dans la foulée si plusieurs niveaux gagnés
+                    myLocalOwnedIds.push(cardId); 
                 }
             } catch (error) {
                 console.error("Erreur lors du processus de pioche :", error);
             }
 
-            // Ouvrir la boîte à cadeaux à l'écran
             if (cardsToOpen.length > 0) { 
                 pendingCards = [...pendingCards, ...cardsToOpen]; 
                 showNextRewardCard(); 
@@ -535,9 +544,7 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
             const container = document.getElementById('tachesList');
             container.innerHTML = "";
             taches.forEach(t => {
-                if (userRole === 'admin' && t.Statut === 'approuve') {
-                    return; 
-                }
+                if (userRole === 'admin' && t.Statut === 'approuve') return; 
 
                 let badgeColor = t.Statut === 'a faire' ? 'bg-danger' : (t.Statut === 'termine' ? 'bg-warning text-dark' : 'bg-success');
                 let actionBtn = "";
@@ -553,10 +560,7 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
         }
 
         function actionTache(id, statut) { 
-            fetch(`${API_URL}?action=changerStatut&id=${id}&statut=${statut}`)
-                .then(() => {
-                    chargerEtAfficherTaches();
-                }); 
+            fetch(`${API_URL}?action=changerStatut&id=${id}&statut=${statut}`).then(() => { chargerEtAfficherTaches(); }); 
         }
 
         function fetchCollectionEtEchanges() {
@@ -577,14 +581,65 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
                     mesCartes.forEach(c => {
                         let trueImg = c.Image_URL || c.Image || "";
                         let trueId = c.Pokemon_API_ID || c.ID || c.id || "";
+                        let lvl = c.Carte_Niveau || 1;
+                        let cardXp = parseInt(c.Carte_XP) || 0;
+                        let atqBonus = parseInt(c.Attaque_Bonus) || 0;
+                    // Remplace les anciennes lignes par celles-ci :
+let nrg = (c.Energie !== undefined && c.Energie !== "") ? parseInt(c.Energie) : 100;
+let cln = (c.Proprete !== undefined && c.Proprete !== "") ? parseInt(c.Proprete) : 100;
+
+                        // ÉVALUATION DES 3 ÉTATS REQUIS
+                        let statutTexte = "Bon état";
+                        let statutColor = "#10D010"; // vert
+                        let glowStyleClass = "";
+                        
+                        // Valeurs de base des attaques
+                        let dMin = 10 + atqBonus;
+                        let dMax = 21 + atqBonus;
+
+                        if (nrg < 30 || cln < 30) {
+                            statutTexte = "État : Mauvais ⚠️";
+                            statutColor = "#FF007F"; // Rose/Rouge alerte Brawl Stars
+                            glowStyleClass = "glow-mauvais";
+                            // Baisse l'attaque du tiers ! (x 0.66)
+                            dMin = Math.round(dMin * 0.66);
+                            dMax = Math.round(dMax * 0.66);
+                        } else if (nrg < 60 || cln < 60) {
+                            statutTexte = "État : Moyen ⏳";
+                            statutColor = "#FFF200"; // Jaune
+                            glowStyleClass = "glow-moyen";
+                        }
+
                         myLocalOwnedIds.push(String(trueId));
-                        grid.innerHTML += `<div class="col text-center"><div class="pokemon-card-wrapper animate__animated animate__fadeIn"><img src="${trueImg}" class="pokemon-card-img"></div></div>`;
+                        
+                        grid.innerHTML += `
+                            <div class="col text-center">
+                                <div class="pokemon-card-wrapper ${glowStyleClass} animate__animated animate__fadeIn" onclick="ouvrirFicheSoinRapide('${trueId}')">
+                                    <img src="${trueImg}" class="pokemon-card-img">
+                                </div>
+                                <div class="mt-1 small fw-bold mb-0" style="color: ${statutColor}; font-size:0.85rem;">
+                                    ⭐ NV.${lvl} | ⚔️ ${dMin}-${dMax}
+                                </div>
+                                <div class="fw-bold small" style="color: ${statutColor}; font-size:0.75rem;">
+                                    ${statutTexte}
+                                </div>
+                                <div class="small fw-bold text-info" style="font-size:0.72rem; line-height: 1.1;">
+                                    XP: ${cardXp} / 100
+                                </div>
+                                <div class="card-xp-mini-container">
+                                    <div class="card-xp-mini-bar" style="width: ${Math.min(100, cardXp)}%;"></div>
+                                </div>
+                            </div>`;
                     });
 
                     if (grid.innerHTML === "") {
                         grid.innerHTML = `<div class="col-12 text-center py-5 text-muted fw-bold">Aucune carte... Complète tes tâches pour ouvrir ton premier booster ! 🏁</div>`;
                     }
-                    if (document.getElementById('myTradeZone').innerHTML === "") renderMyTradeZone();
+                    
+                    renderMyTradeZone();
+                    if (document.getElementById('tradeTargetSelect').value !== "") {
+                        loadPartnerCollectionForTrade();
+                    }
                 });
 
             fetch(`${API_URL}?action=getEchanges&username=${encodeURIComponent(currentUser)}`).then(res => res.json()).then(echanges => {
@@ -597,6 +652,18 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
             });
         }
 
+        function ouvrirFicheSoinRapide(cardId) {
+            let c = rawBoosterCardsGlobal.find(card => (card.Pokemon_API_ID || card.ID).toString() === cardId.toString());
+            if(!c) return;
+            let nrg = parseInt(c.Energie) || 100;
+            let cln = parseInt(c.Proprete) || 100;
+            let condition = "BON";
+            if(nrg < 30 || cln < 30) condition = "MAUVAIS (Attaque réduite d'un tiers !)";
+            else if(nrg < 60 || cln < 60) condition = "MOYEN";
+
+            alert(`🔍 FICHE D'ENTRETIEN : ${c.Nom_Pokemon.toUpperCase()}\n---------------------------------\n🔋 Énergie : ${nrg}%\n🧼 Propreté : ${cln}%\n📈 État général : ${condition}\n📈 XP Carte : ${c.Carte_XP || 0} / 100\n\nRendez-vous dans la page "Centre de Soin" pour l'entretenir !`);
+        }
+
         function initArenaEchanges() {
             selectedMyCardId = null; selectedPartnerCardId = null;
             document.getElementById('partnerTradeZone').innerHTML = `<div class="col-12 text-center text-muted py-5">Sélectionne un ami pour scanner ses cartes.</div>`;
@@ -604,7 +671,9 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
         }
 
         function renderMyTradeZone() {
-            const container = document.getElementById('myTradeZone'); container.innerHTML = "";
+            const container = document.getElementById('myTradeZone'); 
+            if(!container) return;
+            container.innerHTML = "";
             const mesCartes = rawBoosterCardsGlobal.filter(row => {
                 let fUser = row.Nom_Joueur || row.Nom || row.nom || row.Joueur || row.joueur || "";
                 return fUser.toString().toLowerCase() === currentUser.toLowerCase();
@@ -613,7 +682,13 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
                 let trueImg = c.Image_URL || c.Image || "";
                 let trueId = c.Pokemon_API_ID || c.ID || c.id || "";
                 let isSel = selectedMyCardId === trueId ? 'selected' : '';
-                container.innerHTML += `<div class="col"><div class="pokemon-card-wrapper ${isSel}" onclick="selectMyCardForTrade('${trueId}')"><img src="${trueImg}" class="pokemon-card-img"></div></div>`;
+                container.innerHTML += `
+                    <div class="col text-center">
+                        <div class="pokemon-card-wrapper ${isSel}" onclick="selectMyCardForTrade('${trueId}')">
+                            <img src="${trueImg}" class="pokemon-card-img">
+                        </div>
+                        <div class="small fw-bold mt-1 text-white">NV.${c.Carte_Niveau || 1} (XP: ${c.Carte_XP || 0}/100)</div>
+                    </div>`;
             });
         }
 
@@ -656,7 +731,16 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
             m.show();
         }
 
-        function repondreAuDeal(id, dec, instance) { fetch(`${API_URL}?action=repondreEchange&id=${id}&statut=${dec}`).then(() => { instance.hide(); checkRealtimeUpdate(); }); }
+        function repondreAuDeal(id, dec, instance) { 
+            fetch(`${API_URL}?action=repondreEchange&id=${id}&statut=${dec}`)
+                .then(() => { 
+                    instance.hide(); 
+                    selectedMyCardId = null;
+                    selectedPartnerCardId = null;
+                    fetchCollectionEtEchanges(); 
+                    checkRealtimeUpdate(); 
+                }); 
+        }
 
         function showNextRewardCard() {
             if (pendingCards.length === 0) { rewardModalInstance.hide(); return; }
@@ -668,6 +752,7 @@ async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
         }
 
         function nextRewardCard() { showNextRewardCard(); }
+        
         function creerNouvelleTache() {
             const desc = document.getElementById('taskDesc').value, xp = document.getElementById('taskXp').value, money = document.getElementById('taskMoney').value, assign = document.getElementById('taskAssignSelect').value;
             fetch(`${API_URL}?action=ajouterTache&desc=${encodeURIComponent(desc)}&xp=${xp}&money=${money}&assign=${encodeURIComponent(assign)}`).then(() => { alert("Mission lancée !"); document.getElementById('taskDesc').value = ""; chargerEtAfficherTaches(); });
