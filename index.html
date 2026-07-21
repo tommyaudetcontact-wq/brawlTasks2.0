@@ -427,8 +427,7 @@
                     }
                 });
         }
-
-        function checkRealtimeUpdate() {
+function checkRealtimeUpdate() {
             if (!currentUser) return;
             fetch(`${API_URL}?action=getState&username=${encodeURIComponent(currentUser)}`)
                 .then(res => res.json())
@@ -443,9 +442,10 @@
                             
                             if (storedLevel !== null) {
                                 let oldLevel = parseInt(storedLevel);
+                                // Si le niveau monte grâce à une TÂCHE approuvée par un parent
                                 if (state.niveau > oldLevel && !isDrawingProcessActive) {
                                     localStorage.setItem(key, state.niveau);
-                                    await piocherUneCarteTCGEnLocal(state.niveau - oldLevel);
+                                    await afficherCarteRecompenseTache();
                                 } else if (state.niveau < oldLevel) {
                                     localStorage.setItem(key, state.niveau);
                                 }
@@ -464,11 +464,35 @@
                     }
                 });
         }
-
         function chargerEtAfficherTaches() {
             fetch(`${API_URL}?action=getTaches&username=${encodeURIComponent(currentUser)}&role=${userRole}`)
                 .then(res => res.json())
                 .then(renderTaches);
+        }
+
+        // Affiche la carte créée par le serveur lors de la validation des tâches
+        async function afficherCarteRecompenseTache() {
+            isDrawingProcessActive = true;
+            try {
+                const res = await fetch(`${API_URL}?action=getCollection&username=${encodeURIComponent(currentUser)}`);
+                const toutesLesCartes = await res.json();
+                const mesCartes = toutesLesCartes.filter(row => {
+                    let fUser = row.Nom_Joueur || row.Nom || row.nom || row.Joueur || row.joueur || "";
+                    return fUser.toString().toLowerCase() === currentUser.toLowerCase();
+                });
+                
+                if (mesCartes.length > 0) {
+                    let derniereCarte = mesCartes[mesCartes.length - 1];
+                    let cardName = derniereCarte.Nom_Pokemon || "Nouvelle Carte";
+                    let cardImg = derniereCarte.Image_URL || ("https://images.pokemontcg.io/swsh8/" + (derniereCarte.Pokemon_API_ID || "").replace("swsh8-", "") + "_hires.png");
+                    
+                    pendingCards.push({ Nom_Pokemon: cardName, Image_URL: cardImg });
+                    showNextRewardCard();
+                }
+            } catch (error) {
+                console.error("Erreur lors de l'affichage de la récompense de tâche :", error);
+            }
+            isDrawingProcessActive = false;
         }
 
         async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
