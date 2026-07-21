@@ -95,7 +95,6 @@
         }
         .pokemon-card-img { width: 100%; height: auto; border-radius: 10px; display: block; }
         
-/* GESTION DES LUEURS SELON L'ÉTAT COMPLET DE LA CARTE */
         .pokemon-card-wrapper.glow-moyen {
             border-color: var(--brawl-yellow) !important;
             box-shadow: 0 0 20px var(--brawl-yellow), 0 6px 0 #000 !important;
@@ -167,8 +166,13 @@
 
     <div id="appPage" class="container py-4 d-none">
 
-        <a href="https://tommyaudetcontact-wq.github.io/zone-de-combat-hors-ligne/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Solo</a>
-        <a href="https://tommyaudetcontact-wq.github.io/cartessoins/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">🧼 Centre de Soin</a>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex gap-2">
+                <a href="https://tommyaudetcontact-wq.github.io/zone-de-combat-hors-ligne/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Solo</a>
+                <a href="https://tommyaudetcontact-wq.github.io/cartessoins/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">🧼 Centre de Soin</a>
+            </div>
+            <button onclick="handleLogout()" class="btn brawl-btn btn-pink px-3 py-2 animate__animated animate__fadeInDown">🚪 Déconnexion</button>
+        </div>
 
         <div class="brawl-card p-4 animate__animated animate__fadeInDown">
             <div class="row align-items-center">
@@ -313,7 +317,26 @@
         let rewardModalInstance = null, fullMembresListGlobal = [];
         let isDrawingProcessActive = false; 
 
-        window.addEventListener('DOMContentLoaded', fetchMembresPourListes);
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchMembresPourListes();
+            checkAutoLogin();
+        });
+
+        function checkAutoLogin() {
+            const savedUser = localStorage.getItem('brawlUser');
+            const savedRole = localStorage.getItem('brawlRole');
+            if (savedUser) {
+                currentUser = savedUser;
+                userRole = savedRole || 'joueur';
+                initaliserSessionInterface();
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('brawlUser');
+            localStorage.removeItem('brawlRole');
+            location.reload();
+        }
 
         function fetchMembresPourListes() {
             fetch(`${API_URL}?action=getMembres`)
@@ -403,31 +426,40 @@
                     if (response.success) {
                         currentUser = response.user;
                         userRole = response.role;
-                        document.getElementById('loginPage').classList.add('d-none');
-                        document.getElementById('appPage').classList.remove('d-none');
-                        document.getElementById('displayUsername').innerText = currentUser.toUpperCase();
                         
-                        if (userRole === 'admin') {
-                            document.getElementById('adminTab').classList.remove('d-none');
-                            document.getElementById('sectionCollection').classList.add('d-none');
-                            document.getElementById('sectionEchanges').classList.add('d-none');
-                            document.getElementById('xpBlockSection').classList.add('d-none');
-                        } else {
-                            document.getElementById('adminTab').classList.add('d-none');
-                            document.getElementById('sectionCollection').classList.remove('d-none');
-                            document.getElementById('sectionEchanges').classList.remove('d-none');
-                            document.getElementById('xpBlockSection').classList.remove('d-none');
-                        }
+                        localStorage.setItem('brawlUser', currentUser);
+                        localStorage.setItem('brawlRole', userRole);
 
-                        rewardModalInstance = new bootstrap.Modal(document.getElementById('rewardModal'));
-                        setInterval(checkRealtimeUpdate, 4000);
-                        checkRealtimeUpdate();
+                        initaliserSessionInterface();
                     } else {
                         document.getElementById('loginError').innerText = response.message;
                     }
                 });
         }
-function checkRealtimeUpdate() {
+
+        function initaliserSessionInterface() {
+            document.getElementById('loginPage').classList.add('d-none');
+            document.getElementById('appPage').classList.remove('d-none');
+            document.getElementById('displayUsername').innerText = currentUser.toUpperCase();
+            
+            if (userRole === 'admin') {
+                document.getElementById('adminTab').classList.remove('d-none');
+                document.getElementById('sectionCollection').classList.add('d-none');
+                document.getElementById('sectionEchanges').classList.add('d-none');
+                document.getElementById('xpBlockSection').classList.add('d-none');
+            } else {
+                document.getElementById('adminTab').classList.add('d-none');
+                document.getElementById('sectionCollection').classList.remove('d-none');
+                document.getElementById('sectionEchanges').classList.remove('d-none');
+                document.getElementById('xpBlockSection').classList.remove('d-none');
+            }
+
+            rewardModalInstance = new bootstrap.Modal(document.getElementById('rewardModal'));
+            setInterval(checkRealtimeUpdate, 4000);
+            checkRealtimeUpdate();
+        }
+
+        function checkRealtimeUpdate() {
             if (!currentUser) return;
             fetch(`${API_URL}?action=getState&username=${encodeURIComponent(currentUser)}`)
                 .then(res => res.json())
@@ -442,7 +474,6 @@ function checkRealtimeUpdate() {
                             
                             if (storedLevel !== null) {
                                 let oldLevel = parseInt(storedLevel);
-                                // Si le niveau monte grâce à une TÂCHE approuvée par un parent
                                 if (state.niveau > oldLevel && !isDrawingProcessActive) {
                                     localStorage.setItem(key, state.niveau);
                                     await afficherCarteRecompenseTache();
@@ -464,13 +495,13 @@ function checkRealtimeUpdate() {
                     }
                 });
         }
+
         function chargerEtAfficherTaches() {
             fetch(`${API_URL}?action=getTaches&username=${encodeURIComponent(currentUser)}&role=${userRole}`)
                 .then(res => res.json())
                 .then(renderTaches);
         }
 
-        // Affiche la carte créée par le serveur lors de la validation des tâches
         async function afficherCarteRecompenseTache() {
             isDrawingProcessActive = true;
             try {
@@ -491,75 +522,6 @@ function checkRealtimeUpdate() {
                 }
             } catch (error) {
                 console.error("Erreur lors de l'affichage de la récompense de tâche :", error);
-            }
-            isDrawingProcessActive = false;
-        }
-
-        async function piocherUneCarteTCGEnLocal(nbNiveauxGagnes) {
-            isDrawingProcessActive = true;
-            let cardsToOpen = [];
-
-            try {
-                const stateRes = await fetch(`${API_URL}?action=getState&username=${encodeURIComponent(currentUser)}`);
-                const stateData = await stateRes.json();
-                let preference = (stateData.typeRecompense || "pokemon").toLowerCase().trim();
-
-                for (let k = 0; k < nbNiveauxGagnes; k++) {
-                    let decisionType = preference;
-                    if (preference === 'les_deux') {
-                        decisionType = Math.random() < 0.5 ? 'pokemon' : 'lorcana';
-                    }
-
-                    let cardId, cardName, cardImg;
-
-                    if (decisionType === 'lorcana') {
-                        try {
-                            const setsResponse = await fetch('https://api.lorcast.com/v0/sets');
-                            const setsData = await setsResponse.json();
-                            const sets = setsData.results || [];
-
-                            if (sets.length > 0) {
-                                const randomSet = sets[Math.floor(Math.random() * sets.length)];
-                                const cardsResponse = await fetch(`https://api.lorcast.com/v0/sets/${randomSet.id}/cards`);
-                                const cardsData = await cardsResponse.json();
-                                const poolCartes = cardsData.results || cardsData;
-
-                                const cartesDisponibles = poolCartes.filter(card => !myLocalOwnedIds.includes("lorc-" + card.id));
-                                const selectionPool = cartesDisponibles.length > 0 ? cartesDisponibles : poolCartes;
-                                const selectedCard = selectionPool[Math.floor(Math.random() * selectionPool.length)];
-
-                                cardId = "lorc-" + selectedCard.id;
-                                cardName = selectedCard.name || "Carte Lorcana";
-                                cardImg = selectedCard.image_uris && selectedCard.image_uris.digital && selectedCard.image_uris.digital.large 
-                                    ? selectedCard.image_uris.digital.large 
-                                    : "https://placehold.co/280x390/151824/8b5cf6?text=Image+Non+Disponible";
-                            } else {
-                                decisionType = 'pokemon';
-                            }
-                        } catch (err) {
-                            console.error("Échec API Lorcana, bascule sur Pokémon :", err);
-                            decisionType = 'pokemon';
-                        }
-                    }
-
-                    if (decisionType === 'pokemon') {
-                        let randomNum = Math.floor(Math.random() * 260) + 1;
-                        cardId = "swsh8-" + randomNum;
-                        cardName = "CADEAU NIVEAU #" + randomNum;
-                        cardImg = "https://images.pokemontcg.io/swsh8/" + randomNum + "_hires.png";
-                    }
-
-                    await fetch(`${API_URL}?action=enregistrerCarteLocal&idMembre=${idMembreSession}&username=${encodeURIComponent(currentUser)}&cardId=${cardId}&cardName=${encodeURIComponent(cardName)}&cardImg=${encodeURIComponent(cardImg)}`);
-                    cardsToOpen.push({ Nom_Pokemon: cardName, Image_URL: cardImg });
-                    myLocalOwnedIds.push(cardId); 
-                }
-            } catch (error) {
-                console.error("Erreur lors du processus de pioche :", error);
-            }
-
-            if (cardsToOpen.length > 0) { 
-                pendingCards = [...pendingCards, ...cardsToOpen]; 
-                showNextRewardCard(); 
             }
             isDrawingProcessActive = false;
         }
@@ -608,29 +570,25 @@ function checkRealtimeUpdate() {
                         let lvl = c.Carte_Niveau || 1;
                         let cardXp = parseInt(c.Carte_XP) || 0;
                         let atqBonus = parseInt(c.Attaque_Bonus) || 0;
-                    // Remplace les anciennes lignes par celles-ci :
-let nrg = (c.Energie !== undefined && c.Energie !== "") ? parseInt(c.Energie) : 100;
-let cln = (c.Proprete !== undefined && c.Proprete !== "") ? parseInt(c.Proprete) : 100;
+                        let nrg = (c.Energie !== undefined && c.Energie !== "") ? parseInt(c.Energie) : 100;
+                        let cln = (c.Proprete !== undefined && c.Proprete !== "") ? parseInt(c.Proprete) : 100;
 
-                        // ÉVALUATION DES 3 ÉTATS REQUIS
                         let statutTexte = "Bon état";
-                        let statutColor = "#10D010"; // vert
+                        let statutColor = "#10D010";
                         let glowStyleClass = "";
                         
-                        // Valeurs de base des attaques
                         let dMin = 10 + atqBonus;
                         let dMax = 21 + atqBonus;
 
                         if (nrg < 30 || cln < 30) {
                             statutTexte = "État : Mauvais ⚠️";
-                            statutColor = "#FF007F"; // Rose/Rouge alerte Brawl Stars
+                            statutColor = "#FF007F";
                             glowStyleClass = "glow-mauvais";
-                            // Baisse l'attaque du tiers ! (x 0.66)
                             dMin = Math.round(dMin * 0.66);
                             dMax = Math.round(dMax * 0.66);
                         } else if (nrg < 60 || cln < 60) {
                             statutTexte = "État : Moyen ⏳";
-                            statutColor = "#FFF200"; // Jaune
+                            statutColor = "#FFF200";
                             glowStyleClass = "glow-moyen";
                         }
 
