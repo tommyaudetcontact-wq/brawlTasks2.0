@@ -166,14 +166,33 @@
 
     <div id="appPage" class="container py-4 d-none">
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="d-flex gap-2">
-                <a href="https://tommyaudetcontact-wq.github.io/zone-de-combat-hors-ligne/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">Combat Solo</a>
-                <a href="https://tommyaudetcontact-wq.github.io/cartessoins/" class="btn brawl-btn btn-pink px-4 py-2 animate__animated animate__fadeInDown">🧼 Centre de Soin</a>
-                <a href="https://tommyaudetcontact-wq.github.io/appartements/" class="btn brawl-btn btn-yellow px-3 py-2 animate__animated animate__fadeInDown">🏠 Mon Appartement</a>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center mb-3 gap-2">
+            <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
+                <a href="https://tommyaudetcontact-wq.github.io/zone-de-combat-hors-ligne/" class="btn brawl-btn btn-pink px-4 py-2 w-100 w-sm-auto animate__animated animate__fadeInDown">
+                    Combat Solo
+                </a>
+                <a href="https://tommyaudetcontact-wq.github.io/cartessoins/" class="btn brawl-btn btn-pink px-4 py-2 w-100 w-sm-auto animate__animated animate__fadeInDown">
+                    🧼 Centre de Soin
+                </a>
+                <a href="https://tommyaudetcontact-wq.github.io/appartement/" class="btn brawl-btn btn-yellow px-4 py-2 w-100 w-sm-auto animate__animated animate__fadeInDown">
+                    🏠 Mon Appartement
+                </a>
             </div>
-            <button onclick="handleLogout()" class="btn brawl-btn btn-pink px-3 py-2 animate__animated animate__fadeInDown">🚪 Déconnexion</button>
+            <button onclick="handleLogout()" class="btn brawl-btn btn-pink px-3 py-2 w-100 w-md-auto animate__animated animate__fadeInDown">
+                🚪 Déconnexion
+            </button>
         </div>
+<style>
+@media (max-width: 768px) {
+    .brawl-btn {
+        width: 100% !important;
+        margin-bottom: 4px;
+        font-size: 1.1rem !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+    }
+}
+</style>
 
         <div class="brawl-card p-4 animate__animated animate__fadeInDown">
             <div class="row align-items-center">
